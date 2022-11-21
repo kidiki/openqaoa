@@ -677,6 +677,9 @@ class RQAOA(Optimizer):
         elimination_tracker = []
         qaoa_steps = []
         problem_steps = []
+        
+        exp_vals_z_all = []
+        corr_matrix_all = []
 
         # get variables
         problem = self.problem  
@@ -701,6 +704,8 @@ class RQAOA(Optimizer):
 
             # Obtain statistical results
             exp_vals_z, corr_matrix = self._exp_val_hamiltonian_termwise(q)
+            exp_vals_z_all.append(exp_vals_z)
+            corr_matrix_all.append(corr_matrix)
             # Retrieve highest expectation values according to adaptive method or schedule in custom method
             max_terms_and_stats = f_max_terms(exp_vals_z, corr_matrix, self._n_step(n_qubits, n_cutoff, counter))
             # Generate spin map
@@ -742,6 +747,8 @@ class RQAOA(Optimizer):
         self.results['schedule'] = [len(max_tc) for max_tc in elimination_tracker]
         self.results['intermediate_steps'] = [{'QUBO': problem, 'QAOA': qaoa} for qaoa, problem in zip(qaoa_steps, problem_steps)]
         self.results['number_steps'] = counter - self.rqaoa_parameters.counter 
+        self.results['intermediate_exp_vals_z'] = exp_vals_z_all
+        self.results['intermediate_corr_matrix'] = corr_matrix_all
 
         if verbose:
             print(f'RQAOA optimization completed.')
