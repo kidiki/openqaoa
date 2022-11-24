@@ -16,8 +16,6 @@ import abc
 import numpy as np
 from typing import Optional
 from qiskit import IBMQ
-from qiskit.providers.ibmq import IBMQAccountError
-from qiskit.providers.ibmq.api.exceptions import RequestsApiError
 
 from qcs_api_client.client import QCSClientConfiguration
 from pyquil.api._engagement_manager import EngagementManager
@@ -74,26 +72,30 @@ class DeviceQiskit(DeviceBase):
     Contains the required information and methods needed to access remote
     qiskit QPUs.
 
-    Parameters
+    Attributes
     ----------
-	available_qpus: `list`
-		When connection to a provider is established, this attribute contains a list
-		of backend names which can be used to access the selected backend by reinitialising
-		the Access Object with the name of the available backend as input to the
-		device_name parameter.
-	"""
+    available_qpus: `list`
+      When connection to a provider is established, this attribute contains a list
+      of backend names which can be used to access the selected backend by reinitialising
+      the Access Object with the name of the available backend as input to the
+      device_name parameter.
+    n_qubits: `int`
+        The maximum number of qubits available for the selected backend. Only
+        available if check_connection method is executed and a connection to the
+        qpu and provider is established.
+    """
 
-    def __init__(self, device_name: str, api_token: str,
-				 hub: str, group: str, project: str):
-        """A majority of the input parameters required for this can be found in
-        the user's IBMQ Experience account.
+    def __init__(self, device_name: str, hub: str = None, group: str = None, 
+                 project: str = None):
+        """The user's IBMQ account has to be authenticated through qiskit in 
+        order to use this backend. This can be done through `IBMQ.save_account`.
+        
+        See: https://quantum-computing.ibm.com/lab/docs/iql/manage/account/ibmq
 
         Parameters
         ----------
 		device_name: `str`
 			The name of the IBMQ device to be used
-        api_token: `str`
-            Valid IBMQ Experience Token.
         hub: `str`
             Valid IBMQ hub name.
         group: `str`
@@ -103,12 +105,11 @@ class DeviceQiskit(DeviceBase):
             saved in on IBMQ's end.
         """
 
-        self.api_token = api_token
+        self.device_name = device_name
+        self.device_location = 'ibmq'
         self.hub = hub
         self.group = group
         self.project = project
-        self.device_name = device_name
-        self.device_location = 'ibmq'
 
         self.provider_connected = None
         self.qpu_connected = None
@@ -155,6 +156,7 @@ class DeviceQiskit(DeviceBase):
 
         if self.device_name in self.available_qpus:
             self.backend_device = self.provider.get_backend(self.device_name)
+            self.n_qubits = self.backend_device.configuration().n_qubits
             return True
         else:
             print(
@@ -167,28 +169,12 @@ class DeviceQiskit(DeviceBase):
         """
 
         try:
-            if IBMQ.active_account() is None:
-                self.provider = IBMQ.enable_account(self.api_token, hub=self.hub,
-                                                    group=self.group,
-                                                    project=self.project)
-            elif IBMQ.active_account()['token'] != self.api_token:
-                IBMQ.disable_account()
-                self.provider = IBMQ.enable_account(self.api_token, hub=self.hub,
-                                                    group=self.group,
-                                                    project=self.project)
-            else:
-                self.provider = IBMQ.get_provider(hub=self.hub, group=self.group,
-                                                  project=self.project)
-
+            self.provider = IBMQ.load_account()
+            if any([self.hub, self.group, self.project]):
+                self.provider = IBMQ.get_provider(hub=self.hub, group=self.group, project=self.project)
             return True
-        
-        except RequestsApiError as e:
-            print('The api key used was invalid: {}'.format(e))
-            return False
-        
         except Exception as e:
-            print('An Exception has occured when trying to connect with the \
-            provider: {}'.format(e))
+            print('An Exception has occured when trying to connect with the provider. Please note that you are required to set up your IBMQ account locally first. See: https://quantum-computing.ibm.com/lab/docs/iql/manage/account/ibmq for how to save your IBMQ account locally: {}'.format(e))
             return False
 
 
@@ -196,6 +182,12 @@ class DevicePyquil(DeviceBase):
     """
     Contains the required information and methods needed to access remote
     Rigetti QPUs via Pyquil.
+    
+    Attributes
+    ----------
+    n_qubits: `int`
+        The maximum number of qubits available for the selected backend. 
+        Available upon proper initialisation of the class.
     """
 
     def __init__(self, device_name: str, as_qvm: bool = None, noisy: bool = None,
@@ -255,6 +247,7 @@ class DevicePyquil(DeviceBase):
         self.quantum_computer = get_qc(name=self.device_name, as_qvm=self.as_qvm, noisy=self.noisy,
                                        compiler_timeout=self.compiler_timeout, execution_timeout=self.execution_timeout,
                                        client_configuration=self.client_configuration, endpoint_id=self.endpoint_id, engagement_manager=self.engagement_manager)
+        self.n_qubits = len(self.quantum_computer.qubits())
 
     def check_connection(self) -> bool:
         """This method should allow a user to easily check if the credentials
@@ -278,12 +271,17 @@ class DeviceAWS(DeviceBase):
     Contains the required information and methods needed to access QPUs hosted
     on AWS Braket.
     
-    Attributes:
+    Attributes
+    ----------
 	available_qpus: `list`
 		When connection to AWS is established, this attribute contains a list
 		of device names which can be used to access the selected device by
 		reinitialising the Access Object with the name of the available device
 		as input to the device_name parameter.
+    n_qubits: `int`
+        The maximum number of qubits available for the selected backend. Only
+        available if check_connection method is executed and a connection to the
+        qpu and provider is established.
     """
     
     def __init__(self, device_name: str, s3_bucket_name: str = None, 
@@ -354,11 +352,23 @@ class DeviceAWS(DeviceBase):
         
         if self.device_name in self.available_qpus:
             self.backend_device = AwsDevice(self.device_name, self.aws_session)
-            return True
         else:
             print(
-                f"Please choose from {self.available_qpus} for this provider")
+                '''
+                These are the only available devices for this aws region: 
+                {}. Try a different aws region if the device you are looking 
+                for is not in the list.'
+                '''.format(self.available_qpus))
             return False
+        
+        # Get the maximum number of qubits for that particular AWS Backend
+        try:
+            self.n_qubits = self.backend_device.properties.paradigm.qubitCount
+        except AttributeError:
+            print("OpenQAOA is unable to retrieve the number of qubits available in the selected QPU.")
+            return False
+        else:
+            return True
     
     def _check_provider_connection(self) -> bool:
         
@@ -377,7 +387,6 @@ class DeviceAWS(DeviceBase):
 
 
 def device_class_arg_mapper(device_class:DeviceBase,
-                            api_token: str = None,
                             hub: str = None,
                             group: str = None,
                             project: str = None,
@@ -388,15 +397,11 @@ def device_class_arg_mapper(device_class:DeviceBase,
                             client_configuration: QCSClientConfiguration = None,
                             endpoint_id: str = None,
                             engagement_manager: EngagementManager = None,
-                            device_name: str = None,
                             folder_name: str = None, 
                             s3_bucket_name:str = None, 
                             aws_region: str = None) -> dict:
     DEVICE_ARGS_MAPPER = {
-        DeviceQiskit: {'api_token': api_token,
-                        'hub': hub,
-                        'group': group,
-                        'project': project},
+        DeviceQiskit: {'hub': hub, 'group': group, 'project': project},
 
         DevicePyquil: {'as_qvm': as_qvm,
                         'noisy': noisy,
@@ -406,8 +411,7 @@ def device_class_arg_mapper(device_class:DeviceBase,
                         'endpoint_id': endpoint_id,
                         'engagement_manager': engagement_manager},
         
-        DeviceAWS: {'device_name': device_name,
-                    's3_bucket_name': s3_bucket_name,
+        DeviceAWS: {'s3_bucket_name': s3_bucket_name,
                     'aws_region': aws_region,
                     'folder_name': folder_name}
     }
