@@ -59,6 +59,7 @@ def max_terms(exp_vals_z: np.ndarray, corr_matrix: np.ndarray, n_elim: int):
 
         # Obtain max_term, its correlation, and store it
         max_term = np.unravel_index(abs(M).argmax(), M.shape)
+        #print("Max term ", max_term)
         max_corr = np.round(M[max_term], 10)
 
         # Eliminate the expectation value with highest absolute value - round to suppress errors from numbers approximating 0
@@ -107,6 +108,7 @@ def ada_max_terms(exp_vals_z: np.ndarray, corr_matrix: np.ndarray, n_max: int):
     max_terms_and_stats: `dict`
         Dictionary containing terms to be eliminated and their expectation values.
     """
+    #print("n max beginning", n_max)
 
     # Copy list of single spin expectation values
     Z = exp_vals_z.copy()
@@ -154,10 +156,14 @@ def ada_max_terms(exp_vals_z: np.ndarray, corr_matrix: np.ndarray, n_max: int):
     # Correlation average magnitude
     avg_mag_stats = np.round(
         np.mean(np.abs(list(max_terms_and_stats.values()))), 10)
+    
+    #print("Average correlation of the spins is ", avg_mag_stats)
 
     # Select only the ones above average
     max_terms_and_stats = {key: value for key, value in max_terms_and_stats.items(
     ) if np.abs(value) >= avg_mag_stats}
+    
+    #print("Which are above the average?",  max_terms_and_stats)
 
     # Cut down the number of eliminations if, due to symmetry, they exceed the number allowed - relevant for unweighted graphs
     if len(max_terms_and_stats) > n_max:
@@ -165,6 +171,9 @@ def ada_max_terms(exp_vals_z: np.ndarray, corr_matrix: np.ndarray, n_max: int):
         max_keys = list(max_terms_and_stats.keys())[0:n_max]
         max_terms_and_stats = {
             key: max_terms_and_stats[key] for key in max_keys}
+    #print(" n max = ", n_max)
+        
+    #print("Which were chosen?",  max_terms_and_stats)
 
     return max_terms_and_stats
 
