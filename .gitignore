@@ -134,4 +134,6 @@ dmypy.json
 # Mac Stuff
 *.DS_Store
 
-
+*.json
+*.png
+*.csv
