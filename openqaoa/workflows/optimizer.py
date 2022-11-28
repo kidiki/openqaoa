@@ -751,8 +751,8 @@ class RQAOA(Optimizer):
         self.results['schedule'] = [len(max_tc) for max_tc in elimination_tracker]
         self.results['intermediate_steps'] = [{'QUBO': problem, 'QAOA': qaoa} for qaoa, problem in zip(qaoa_steps, problem_steps)]
         self.results['number_steps'] = counter - self.rqaoa_parameters.counter 
-        self.results['intermediate_exp_vals_z'] = exp_vals_z_all
-        self.results['intermediate_corr_matrix'] = corr_matrix_all
+        #self.results['intermediate_exp_vals_z'] = exp_vals_z_all
+        #self.results['intermediate_corr_matrix'] = corr_matrix_all
 
         if verbose:
             print(f'RQAOA optimization completed.')
