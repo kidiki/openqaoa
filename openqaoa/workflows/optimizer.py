@@ -732,6 +732,28 @@ class RQAOA(Optimizer):
             problem = new_problem
             
             # Compile qaoa with the problem
+            # Kristina's KDK changed
+            from openqaoa.utilities import energy_expectation_analytical
+            
+            hamiltonian = new_problem.hamiltonian
+    
+            # search space
+            betas = np.linspace(0, np.pi/2, 50)
+            gammas = np.linspace(0, 3*np.pi, 300)
+    
+            cost_landscape = np.zeros((betas.size, gammas.size), dtype=float)
+            
+            for i, beta in enumerate(betas):
+                for j, gamma in enumerate(gammas):
+                    variational_params = [beta, gamma]
+                    cost_landscape[i,j] = energy_expectation_analytical(variational_params, hamiltonian)
+            
+            loc_min = np.argwhere(cost_landscape == np.min(cost_landscape))
+            beta_min = betas[loc_min[0][0]]
+            gamma_min = gammas[loc_min[0][1]]
+            q.set_circuit_properties(p=1, init_type='custom', variational_params_dict={"betas":[beta_min], "gammas":[gamma_min]}, mixer_hamiltonian='x')
+
+            
             q.compile(problem, verbose=False)
 
             # Add one step to the counter
