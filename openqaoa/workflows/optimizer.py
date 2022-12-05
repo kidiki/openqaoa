@@ -733,6 +733,7 @@ class RQAOA(Optimizer):
             
             # Compile qaoa with the problem
             # Kristina's KDK changed
+            '''
             from openqaoa.utilities import energy_expectation_analytical
             
             hamiltonian = new_problem.hamiltonian
@@ -752,7 +753,7 @@ class RQAOA(Optimizer):
             beta_min = betas[loc_min[0][0]]
             gamma_min = gammas[loc_min[0][1]]
             q.set_circuit_properties(p=1, init_type='custom', variational_params_dict={"betas":[beta_min], "gammas":[gamma_min]}, mixer_hamiltonian='x')
-
+            '''
             
             q.compile(problem, verbose=False)
 
